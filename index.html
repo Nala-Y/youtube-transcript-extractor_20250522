@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>유튜브 대본 추출기 v10</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Sans+JP:wght@300;400;500;700&family=Noto+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body.ko {
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        body.en {
+            font-family: 'Noto Sans', sans-serif;
+        }
+        body.ja {
+            font-family: 'Noto Sans JP', sans-serif;
+        }
+        body.es {
+            font-family: 'Noto Sans', sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+        }
+        .gradient-button {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%);
+            transition: all 0.3s ease;
+        }
+        .gradient-button:hover {
+            background: linear-gradient(135deg, #ff5252 0%, #ff7676 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 107, 107, 0.2);
+        }
+        .transcript-container {
+            max-height: 400px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #ff6b6b #f0f0f0;
+        }
+        .transcript-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .transcript-container::-webkit-scrollbar-track {
+            background: #f0f0f0;
+            border-radius: 10px;
+        }
+        .transcript-container::-webkit-scrollbar-thumb {
+            background-color: #ff6b6b;
+            border-radius: 10px;
+        }
+        .loading-animation {
+            display: none;
+        }
+        .loading-animation.active {
+            display: flex;
+        }
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+        .pulse {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        .language-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .language-dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: #fff;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 10;
+            border-radius: 8px;
+        }
+        .language-dropdown:hover .language-dropdown-content {
+            display: block;
+        }
+        .language-option {
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .language-option:hover {
+            background-color: #f1f1f1;
+        }
+        .language-option:first-child {
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+        .language-option:last-child {
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+        /* .download-dropdown 관련 스타일은 더 이상 필요 없을 수 있으나, 다른 드롭다운과 공유될 수 있어 유지 */
+        /* .download-option 관련 스타일도 마찬가지 */
+        .theme-toggle {
+            position: relative;
+            width: 60px;
+            height: 30px;
+            border-radius: 15px;
+            background-color: #f0f0f0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .theme-toggle.dark {
+            background-color: #555;
+        }
+        .theme-toggle-thumb {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        .theme-toggle.dark .theme-toggle-thumb {
+            left: 33px;
+            background-color: #333;
+        }
+        .dark-mode {
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            color: #e2e8f0;
+        }
+        .dark-mode .bg-white {
+            background-color: #2d3748 !important;
+            color: #e2e8f0;
+        }
+        .dark-mode .text-gray-800 {
+            color: #e2e8f0 !important;
+        }
+        .dark-mode .text-gray-700 {
+            color: #cbd5e0 !important;
+        }
+        .dark-mode .text-gray-600 {
+            color: #a0aec0 !important;
+        }
+        .dark-mode .text-gray-500 {
+            color: #718096 !important;
+        }
+        .dark-mode .bg-gray-50 {
+            background-color: #3a4556 !important;
+        }
+        .dark-mode .bg-gray-100 {
+            background-color: #4a5568 !important;
+        }
+        .dark-mode .bg-gray-200 {
+            background-color: #2d3748 !important;
+        }
+        .dark-mode .border-gray-200 {
+            border-color: #4a5568 !important;
+        }
+        .dark-mode .border-gray-300 {
+            border-color: #4a5568 !important;
+        }
+        .dark-mode .shadow-md {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+        }
+        .dark-mode .bg-yellow-50 {
+            background-color: #3c3a2e !important;
+        }
+        .dark-mode .border-yellow-400 {
+            border-color: #d69e2e !important;
+        }
+        .dark-mode .text-yellow-700 {
+            color: #f6e05e !important;
+        }
+        .dark-mode .bg-red-100 {
+            background-color: #742a2a !important;
+        }
+        .dark-mode .text-red-500 {
+            color: #fc8181 !important;
+        }
+        .dark-mode .bg-gray-800 {
+            background-color: #1a202c !important;
+        }
+        .dark-mode .hover\:bg-gray-200:hover {
+            background-color: #4a5568 !important;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 120px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -60px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #555 transparent transparent transparent;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        .feature-card {
+            transition: all 0.3s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        .feature-icon {
+            transition: all 0.3s ease;
+        }
+        .feature-card:hover .feature-icon {
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col ko">
+    <header class="bg-white shadow-md">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h18M3 16h18" />
+                </svg>
+                <h1 class="text-xl font-bold text-gray-800" data-lang-key="title">유튜브 대본 추출기</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center">
+                    <span class="mr-2 text-sm text-gray-600">다크 모드</span>
+                    <div id="theme-toggle" class="theme-toggle">
+                        <div class="theme-toggle-thumb"></div>
+                    </div>
+                </div>
+                <div class="language-dropdown">
+                    <button class="flex items-center text-gray-700 hover:text-gray-900">
+                        <span id="current-language">한국어</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div class="language-dropdown-content">
+                        <div class="language-option" data-lang="ko">한국어</div>
+                        <div class="language-option" data-lang="en">English</div>
+                        <div class="language-option" data-lang="ja">日本語</div>
+                        <div class="language-option" data-lang="es">Español</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow container mx-auto px-4 py-8">
+        <section class="mb-12 text-center">
+            <h2 class="text-3xl font-bold mb-4 text-gray-800" data-lang-key="main-heading">유튜브 영상의 대본을 쉽게 추출하세요</h2>
+            <p class="text-lg text-gray-600 max-w-2xl mx-auto" data-lang-key="main-description">유튜브 URL만 입력하면 자동으로 대본을 추출해 드립니다. 공부, 번역, 요약에 활용해보세요.</p>
+        </section>
+
+        <section class="bg-white rounded-lg shadow-md p-6 mb-12 max-w-3xl mx-auto">
+            <div class="mb-4">
+                <label for="youtube-url" class="block text-gray-700 mb-2">YouTube URL</label>
+                <input type="text" id="youtube-url" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500" data-lang-attr="placeholder" data-lang-key="input-placeholder" placeholder="유튜브 URL을 입력하세요">
+            </div>
+            <div class="flex justify-center">
+                <button id="extract-button" class="gradient-button text-white px-6 py-3 rounded-md font-medium flex items-center" data-lang-key="extract-button">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    대본 추출하기
+                </button>
+            </div>
+        </section>
+
+        <div id="loading" class="loading-animation flex flex-col items-center justify-center mb-12">
+            <div class="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="text-lg text-gray-700" data-lang-key="loading">대본을 추출하는 중입니다...</p>
+        </div>
+
+        <section id="result-container" class="hidden mb-12">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                <div class="md:col-span-1">
+                    <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+                        <h3 class="text-lg font-semibold mb-3 text-gray-800" data-lang-key="video-info-heading">영상 정보</h3>
+                        <div id="video-thumbnail" class="mb-3 rounded-lg overflow-hidden">
+                            <img src="https://via.placeholder.com/320x180/ff6b6b/ffffff?text=YouTube+Thumbnail" alt="Video Thumbnail" class="w-full">
+                        </div>
+                        <h4 id="video-title" class="font-medium text-gray-800 mb-1">영상 제목</h4>
+                        <p id="video-channel" class="text-gray-600 mb-1">채널명</p>
+                        <p id="video-stats" class="text-sm text-gray-500">조회수 • 날짜</p>
+                    </div>
+                </div>
+                <div class="md:col-span-2">
+                    <div class="bg-white rounded-lg shadow-md p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-semibold text-gray-800" data-lang-key="result-heading">추출된 대본</h3>
+                            <div class="flex space-x-2">
+                                <div class="tooltip">
+                                    <button id="copy-button" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                        <span data-lang-key="copy-button">복사</span>
+                                    </button>
+                                    <span id="copy-tooltip" class="tooltiptext" data-lang-key="copy-tooltip">클립보드에 복사</span>
+                                </div>
+                                <button id="download-txt-button" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    <span data-lang-key="download-txt">텍스트 파일 (.txt)</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="transcript-container bg-gray-50 rounded-md p-4 border border-gray-200">
+                            <pre id="transcript-content" class="whitespace-pre-wrap text-gray-700 font-normal"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-12 max-w-4xl mx-auto">
+            <h2 class="text-2xl font-bold mb-6 text-center text-gray-800" data-lang-key="how-to-use-heading">사용 방법</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white rounded-lg shadow-md p-6 feature-card">
+                    <div class="flex justify-center mb-4">
+                        <div class="bg-red-100 rounded-full p-3 feature-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2 text-center text-gray-800" data-lang-key="step1-heading">URL 입력</h3>
+                    <p class="text-gray-600 text-center" data-lang-key="step1-description">유튜브 영상의 URL을 입력창에 붙여넣으세요.</p>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6 feature-card">
+                    <div class="flex justify-center mb-4">
+                        <div class="bg-red-100 rounded-full p-3 feature-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2 text-center text-gray-800" data-lang-key="step2-heading">대본 추출</h3>
+                    <p class="text-gray-600 text-center" data-lang-key="step2-description">'대본 추출하기' 버튼을 클릭하여 대본을 추출하세요.</p>
+                </div>
+                <div class="bg-white rounded-lg shadow-md p-6 feature-card">
+                    <div class="flex justify-center mb-4">
+                        <div class="bg-red-100 rounded-full p-3 feature-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2 text-center text-gray-800" data-lang-key="step3-heading">활용하기</h3>
+                    <p class="text-gray-600 text-center" data-lang-key="step3-description">추출된 대본을 복사하거나 다운로드하여 활용하세요.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-12 max-w-4xl mx-auto">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-800" data-lang-key="about-heading">서비스 소개</h2>
+                <p class="text-gray-600 mb-4" data-lang-key="about-description">유튜브 대본 추출기는 유튜브 영상에 포함된 자막/대본을 쉽게 추출할 수 있는 서비스입니다. 영상 학습, 내용 요약, 번역 작업 등 다양한 용도로 활용할 수 있습니다.</p>
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                    <p class="text-yellow-700" data-lang-key="demo-notice">이 서비스는 데모 버전입니다. 실제 API와 연동되지 않으며, 샘플 데이터를 보여줍니다. 실제 유튜브 자막 추출 기능은 서버측 구현이 필요합니다.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-800 text-white py-8">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <h2 class="text-xl font-bold mb-2" data-lang-key="footer-title">유튜브 대본 추출기</h2>
+                    <p class="text-gray-400" data-lang-key="footer-description">쉽고 빠르게 유튜브 대본을 추출하세요</p>
+                </div>
+                <div>
+                    <p class="text-gray-400" data-lang-key="footer-copyright">© 2023 유튜브 대본 추출기. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 로딩 애니메이션 초기 상태 설정 - 처음에는 숨김
+            const loading = document.getElementById('loading');
+            loading.style.display = 'none';
+            
+            // 언어 설정
+            const translations = {
+                'ko': {
+                    'title': '유튜브 대본 추출기',
+                    'main-heading': '유튜브 영상의 대본을 쉽게 추출하세요',
+                    'main-description': '유튜브 URL만 입력하면 자동으로 대본을 추출해 드립니다. 공부, 번역, 요약에 활용해보세요.',
+                    'input-placeholder': '유튜브 URL을 입력하세요',
+                    'extract-button': '대본 추출하기',
+                    'loading': '대본을 추출하는 중입니다...',
+                    'result-heading': '추출된 대본',
+                    'copy-button': '복사',
+                    'download-txt': '텍스트 파일 (.txt)', // 단일 버튼 텍스트로 사용
+                    'video-info-heading': '영상 정보',
+                    'how-to-use-heading': '사용 방법',
+                    'step1-heading': 'URL 입력',
+                    'step1-description': '유튜브 영상의 URL을 입력창에 붙여넣으세요.',
+                    'step2-heading': '대본 추출',
+                    'step2-description': "'대본 추출하기' 버튼을 클릭하여 대본을 추출하세요.",
+                    'step3-heading': '활용하기',
+                    'step3-description': '추출된 대본을 복사하거나 다운로드하여 활용하세요.',
+                    'about-heading': '서비스 소개',
+                    'about-description': '유튜브 대본 추출기는 유튜브 영상에 포함된 자막/대본을 쉽게 추출할 수 있는 서비스입니다. 영상 학습, 내용 요약, 번역 작업 등 다양한 용도로 활용할 수 있습니다.',
+                    'demo-notice': '이 서비스는 데모 버전입니다. 실제 API와 연동되지 않으며, 샘플 데이터를 보여줍니다. 실제 유튜브 자막 추출 기능은 서버측 구현이 필요합니다.',
+                    'footer-title': '유튜브 대본 추출기',
+                    'footer-description': '쉽고 빠르게 유튜브 대본을 추출하세요',
+                    'footer-copyright': '© 2023 유튜브 대본 추출기. All rights reserved.',
+                    'invalid-url': '유효한 유튜브 URL을 입력해주세요.',
+                    'copied': '복사됨',
+                    'copy-failed': '클립보드 복사에 실패했습니다.',
+                    'copy-tooltip': '클립보드에 복사'
+                },
+                'en': {
+                    'title': 'YouTube Transcript Extractor',
+                    'main-heading': 'Easily Extract Transcripts from YouTube Videos',
+                    'main-description': 'Just enter a YouTube URL and we\'ll automatically extract the transcript. Use it for studying, translation, summarization, and more.',
+                    'input-placeholder': 'Enter YouTube URL',
+                    'extract-button': 'Extract Transcript',
+                    'loading': 'Extracting transcript...',
+                    'result-heading': 'Extracted Transcript',
+                    'copy-button': 'Copy',
+                    'download-txt': 'Text File (.txt)', // Used for the single button text
+                    'video-info-heading': 'Video Information',
+                    'how-to-use-heading': 'How to Use',
+                    'step1-heading': 'Enter URL',
+                    'step1-description': 'Paste the YouTube video URL into the input field.',
+                    'step2-heading': 'Extract Transcript',
+                    'step2-description': 'Click the "Extract Transcript" button to get the transcript.',
+                    'step3-heading': 'Utilize',
+                    'step3-description': 'Copy or download the extracted transcript for your use.',
+                    'about-heading': 'About the Service',
+                    'about-description': 'YouTube Transcript Extractor is a service that easily extracts captions/transcripts from YouTube videos. It can be used for various purposes such as video learning, content summarization, and translation work.',
+                    'demo-notice': 'This is a demo version. It is not connected to actual APIs and shows sample data. Actual YouTube transcript extraction requires server-side implementation.',
+                    'footer-title': 'YouTube Transcript Extractor',
+                    'footer-description': 'Extract YouTube transcripts easily and quickly',
+                    'footer-copyright': '© 2023 YouTube Transcript Extractor. All rights reserved.',
+                    'invalid-url': 'Please enter a valid YouTube URL.',
+                    'copied': 'Copied',
+                    'copy-failed': 'Failed to copy to clipboard.',
+                    'copy-tooltip': 'Copy to clipboard'
+                },
+                'ja': {
+                    'title': 'YouTube 字幕抽出ツール',
+                    'main-heading': 'YouTube動画の字幕を簡単に抽出',
+                    'main-description': 'YouTubeのURLを入力するだけで、自動的に字幕を抽出します。勉強、翻訳、要約などに活用できます。',
+                    'input-placeholder': 'YouTube URLを入力してください',
+                    'extract-button': '字幕を抽出する',
+                    'loading': '字幕を抽出中...',
+                    'result-heading': '抽出された字幕',
+                    'copy-button': 'コピー',
+                    'download-txt': 'テキストファイル (.txt)', // 単일ボタンのテキストとして使用
+                    'video-info-heading': '動画情報',
+                    'how-to-use-heading': '使い方',
+                    'step1-heading': 'URLを入力',
+                    'step1-description': 'YouTube動画のURLを入力欄に貼り付けます。',
+                    'step2-heading': '字幕を抽出',
+                    'step2-description': '「字幕を抽出する」ボタンをクリックして字幕を抽出します。',
+                    'step3-heading': '活用する',
+                    'step3-description': '抽出された字幕をコピーまたはダウンロードして活用します。',
+                    'about-heading': 'サービス紹介',
+                    'about-description': 'YouTube字幕抽出ツールは、YouTube動画に含まれる字幕を簡単に抽出できるサービスです。動画学習、内容要約、翻訳作業など様々な用途に活用できます。',
+                    'demo-notice': 'これはデモバージョンです。実際のAPIと連動せず、サンプルデータを表示します。実際のYouTube字幕抽出機能には、サーバー側の実装が必要です。',
+                    'footer-title': 'YouTube字幕抽出ツール',
+                    'footer-description': '簡単かつ素早くYouTube字幕を抽出',
+                    'footer-copyright': '© 2023 YouTube字幕抽出ツール. All rights reserved.',
+                    'invalid-url': '有効なYouTube URLを入力してください。',
+                    'copied': 'コピーしました',
+                    'copy-failed': 'クリップボードへのコピーに失敗しました。',
+                    'copy-tooltip': 'クリップボードにコピー'
+                },
+                'es': {
+                    'title': 'Extractor de Transcripciones de YouTube',
+                    'main-heading': 'Extrae fácilmente transcripciones de videos de YouTube',
+                    'main-description': 'Solo ingresa una URL de YouTube y extraeremos automáticamente la transcripción. Úsala para estudiar, traducir, resumir y más.',
+                    'input-placeholder': 'Ingresa URL de YouTube',
+                    'extract-button': 'Extraer Transcripción',
+                    'loading': 'Extrayendo transcripción...',
+                    'result-heading': 'Transcripción Extraída',
+                    'copy-button': 'Copiar',
+                    'download-txt': 'Archivo de texto (.txt)', // Usado para el texto del botón único
+                    'video-info-heading': 'Información del Video',
+                    'how-to-use-heading': 'Cómo Usar',
+                    'step1-heading': 'Ingresa URL',
+                    'step1-description': 'Pega la URL del video de YouTube en el campo de entrada.',
+                    'step2-heading': 'Extrae Transcripción',
+                    'step2-description': 'Haz clic en el botón "Extraer Transcripción" para obtener la transcripción.',
+                    'step3-heading': 'Utiliza',
+                    'step3-description': 'Copia o descarga la transcripción extraída para tu uso.',
+                    'about-heading': 'Acerca del Servicio',
+                    'about-description': 'El Extractor de Transcripciones de YouTube es un servicio que extrae fácilmente subtítulos/transcripciones de videos de YouTube. Puede utilizarse para diversos fines como aprendizaje de video, resumen de contenido y trabajo de traducción.',
+                    'demo-notice': 'Esta es una versión demo. No está conectada a APIs reales y muestra datos de ejemplo. La extracción real de transcripciones de YouTube requiere implementación del lado del servidor.',
+                    'footer-title': 'Extractor de Transcripciones de YouTube',
+                    'footer-description': 'Extrae transcripciones de YouTube fácil y rápidamente',
+                    'footer-copyright': '© 2023 Extractor de Transcripciones de YouTube. Todos los derechos reservados.',
+                    'invalid-url': 'Por favor ingresa una URL de YouTube válida.',
+                    'copied': 'Copiado',
+                    'copy-failed': 'Error al copiar al portapapeles.',
+                    'copy-tooltip': 'Copiar al portapapeles'
+                }
+            };
+            
+            const themeToggle = document.getElementById('theme-toggle');
+            themeToggle.addEventListener('click', function() {
+                document.body.classList.toggle('dark-mode');
+                themeToggle.classList.toggle('dark');
+                const isDarkMode = document.body.classList.contains('dark-mode');
+                localStorage.setItem('dark-mode', isDarkMode);
+            });
+            
+            const savedDarkMode = localStorage.getItem('dark-mode') === 'true';
+            if (savedDarkMode) {
+                document.body.classList.add('dark-mode');
+                themeToggle.classList.add('dark');
+            }
+            
+            function changeLanguage(lang) {
+                const currentBodyClasses = Array.from(document.body.classList);
+                const isDarkMode = currentBodyClasses.includes('dark-mode');
+                
+                document.body.className = ''; 
+                document.body.classList.add(lang); 
+                if (isDarkMode) {
+                    document.body.classList.add('dark-mode'); 
+                }
+
+                document.getElementById('current-language').textContent = {
+                    'ko': '한국어',
+                    'en': 'English',
+                    'ja': '日本語',
+                    'es': 'Español'
+                }[lang];
+                
+                const elements = document.querySelectorAll('[data-lang-key]');
+                elements.forEach(el => {
+                    const key = el.getAttribute('data-lang-key');
+                    const attr = el.getAttribute('data-lang-attr');
+                    
+                    if (translations[lang] && translations[lang][key]) {
+                        if (attr) {
+                            el.setAttribute(attr, translations[lang][key]);
+                        } else {
+                            el.textContent = translations[lang][key];
+                        }
+                    }
+                });
+                
+                if (translations[lang] && translations[lang]['copy-tooltip']) {
+                    document.getElementById('copy-tooltip').textContent = translations[lang]['copy-tooltip'];
+                }
+                
+                localStorage.setItem('preferred-language', lang);
+            }
+            
+            const languageOptions = document.querySelectorAll('.language-option');
+            languageOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    const lang = this.getAttribute('data-lang');
+                    changeLanguage(lang);
+                });
+            });
+            
+            function detectLanguageByIP() {
+                const savedLanguage = localStorage.getItem('preferred-language');
+                if (savedLanguage) {
+                    changeLanguage(savedLanguage);
+                    return;
+                }
+                
+                const browserLang = navigator.language.split('-')[0];
+                const supportedLangs = ['ko', 'en', 'ja', 'es'];
+                
+                if (supportedLangs.includes(browserLang)) {
+                    changeLanguage(browserLang);
+                } else {
+                    changeLanguage('en'); 
+                }
+            }
+            
+            detectLanguageByIP();
+            
+            const youtubeUrlInput = document.getElementById('youtube-url');
+            const extractButton = document.getElementById('extract-button');
+            const resultContainer = document.getElementById('result-container');
+            const transcriptContent = document.getElementById('transcript-content');
+            const copyButton = document.getElementById('copy-button');
+            const downloadTxtButton = document.getElementById('download-txt-button'); // ID 변경됨
+            // const downloadDocxButton = document.getElementById('download-docx'); // DOCX 버튼 변수 제거
+            const videoTitle = document.getElementById('video-title');
+            const videoChannel = document.getElementById('video-channel');
+            const videoStats = document.getElementById('video-stats');
+            const videoThumbnail = document.getElementById('video-thumbnail').querySelector('img');
+            
+            const sampleTranscript = `안녕하세요 여러분, 오늘은 유튜브 대본 추출에 대해 알아보겠습니다.
+
+유튜브 대본은 영상의 내용을 텍스트로 확인할 수 있어 매우 유용합니다. 특히 공부나 연구, 번역 작업을 할 때 큰 도움이 됩니다.
+
+대본을 추출하는 방법은 여러 가지가 있지만, 오늘은 가장 간단한 방법을 소개해 드리겠습니다.
+
+우선 유튜브 URL을 복사해야 합니다. 그 다음 우리 서비스에 URL을 붙여넣고 '대본 추출하기' 버튼을 클릭하면 됩니다.
+
+몇 초 후에 대본이 자동으로 추출되어 표시됩니다. 추출된 대본은 복사하거나 다운로드하여 활용할 수 있습니다.
+
+이 기능은 자막이 있는 영상에 한해 작동한다는 점 참고해 주세요.
+
+오늘 설명을 들어주셔서 감사합니다. 많은 활용 바랍니다.`;
+
+            const sampleVideoInfo = {
+                title: "유튜브 대본 추출하는 방법 완벽 가이드",
+                channel: "대본추출 채널",
+                views: "조회수 15,234회",
+                date: "2023년 5월 15일",
+                thumbnail: "https://via.placeholder.com/320x180/ff6b6b/ffffff?text=유튜브+대본+추출"
+            };
+            
+            function isValidYoutubeUrl(url) {
+                const pattern = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$/;
+                return pattern.test(url);
+            }
+            
+           extractButton.addEventListener('click', async function() { // async 꼭 추가해주세요!
+    const youtubeUrl = youtubeUrlInput.value.trim();
+    let currentLang = document.body.classList.contains('ko') ? 'ko' :
+                      document.body.classList.contains('ja') ? 'ja' :
+                      document.body.classList.contains('es') ? 'es' : 'en';
+
+    // (만약 translations 객체가 없다면, 간단한 메시지로 대체하거나 이전 단계에서 만들었던 translations 객체를 사용하세요)
+    const translations = {
+        'ko': {'input-placeholder': '유튜브 URL을 입력하세요', 'invalid-url': '유효한 유튜브 URL을 입력해주세요.', 'fetch-error': '대본을 가져오는 중 오류가 발생했습니다.', 'server-connect-error': '서버에 연결할 수 없습니다. 프로그램(server.js)이 실행 중인지 확인해주세요.', 'no-transcript': '해당 영상의 대본을 찾을 수 없거나 비활성화되어 있습니다.'},
+        'en': {'input-placeholder': 'Enter YouTube URL', 'invalid-url': 'Please enter a valid YouTube URL.', 'fetch-error': 'Error fetching transcript.', 'server-connect-error': 'Could not connect to server. Please ensure the program (server.js) is running.', 'no-transcript': 'No transcript found for this video, or transcripts are disabled.'},
+        'ja': {'input-placeholder': 'YouTube URLを入力してください', 'invalid-url': '有効なYouTube URLを入力してください。', 'fetch-error': '字幕の取得中にエラーが発生しました。', 'server-connect-error': 'サーバーに接続できませんでした。プログラム (server.js) が実行されているか確認してください。', 'no-transcript': 'この動画の字幕が見つからないか、無効になっています。'},
+        'es': {'input-placeholder': 'Ingresa URL de YouTube', 'invalid-url': 'Por favor ingresa una URL de YouTube válida.', 'fetch-error': 'Error al extraer la transcripción.', 'server-connect-error': 'No se pudo conectar al servidor. Asegúrate de que el programa (server.js) esté en ejecución.', 'no-transcript': 'No se encontró transcripción para este video o las transcripciones están deshabilitadas.'}
+    };
+
+
+    if (!youtubeUrl) {
+        alert(translations[currentLang]['input-placeholder']);
+        return;
+    }
+
+    // 간단한 유튜브 URL 형식 검사 (정확하지 않을 수 있음)
+    if (!youtubeUrl.includes('youtube.com/') && !youtubeUrl.includes('youtu.be/')) {
+         alert(translations[currentLang]['invalid-url']);
+        return;
+    }
+
+    loading.style.display = 'flex'; // 로딩 애니메이션 보여주기
+    resultContainer.classList.add('hidden'); // 결과 창 숨기기
+    transcriptContent.textContent = ''; // 이전 대본 내용 지우기
+
+    try {
+        // !!!! 여기가 중요: 우리 server.js에게 요청을 보내는 부분!!!!
+        // `http://localhost:3000`은 우리 server.js가 듣고 있는 주소예요.
+        const response = await fetch(`http://localhost:3000/api/transcript?url=${encodeURIComponent(youtubeUrl)}`);
+
+        const data = await response.json(); // 서버가 보내준 응답을 JSON 형태로 받기
+
+        if (!response.ok) {
+            // 서버가 오류를 보냈을 경우 (예: 대본 없음, 서버 내부 오류 등)
+            let errorMessage = data.error || translations[currentLang]['fetch-error'];
+            if (response.status === 404) { // 404는 '찾을 수 없음' (대본 없음)
+                errorMessage = translations[currentLang]['no-transcript'];
+            }
+            throw new Error(errorMessage);
+        }
+
+        // 성공적으로 대본을 받아왔다면!
+        transcriptContent.textContent = data.transcript; // 화면에 대본 표시
+        resultContainer.classList.remove('hidden'); // 결과 창 보여주기
+
+        // (선택 사항) 영상 정보는 일단 샘플로 유지하거나, 이전에 사용하던 로직이 있다면 그대로 두세요.
+        // videoTitle.textContent = sampleVideoInfo.title;
+        // videoChannel.textContent = sampleVideoInfo.channel;
+        // videoStats.textContent = `${sampleVideoInfo.views} • ${sampleVideoInfo.date}`;
+        // videoThumbnail.src = sampleVideoInfo.thumbnail;
+
+        resultContainer.scrollIntoView({ behavior: 'smooth' }); // 결과 창으로 스크롤
+
+    } catch (error) {
+        // 요청 과정이나 응답 처리 중 문제가 생겼을 때
+        console.error('클라이언트 오류:', error);
+        let alertMessage = error.message;
+        if (error.message.toLowerCase().includes('failed to fetch')) {
+            // 서버에 아예 연결도 안된 경우 (server.js가 꺼져있거나 할 때)
+            alertMessage = translations[currentLang]['server-connect-error'];
+        }
+        alert(alertMessage);
+    } finally {
+        // 성공하든 실패하든 로딩 애니메이션은 숨기기
+        loading.style.display = 'none';
+    }
+});
+            
+            copyButton.addEventListener('click', function() {
+                const textToCopy = transcriptContent.textContent;
+                let currentLang = 'en'; 
+                if (document.body.classList.contains('ko')) currentLang = 'ko';
+                else if (document.body.classList.contains('ja')) currentLang = 'ja';
+                else if (document.body.classList.contains('es')) currentLang = 'es';
+                
+                navigator.clipboard.writeText(textToCopy).then(function() {
+                    const originalCopyButtonSpan = copyButton.querySelector('span[data-lang-key="copy-button"]');
+                    const originalCopyButtonContent = originalCopyButtonSpan ? originalCopyButtonSpan.textContent : translations[currentLang]['copy-button'];
+                    const originalCopyButtonSVG = copyButton.querySelector('svg').outerHTML;
+
+                    const checkIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>`;
+                    copyButton.innerHTML = checkIcon + (translations[currentLang]['copied'] || "Copied");
+                    document.getElementById('copy-tooltip').textContent = translations[currentLang]['copied'] || "Copied";
+                    
+                    setTimeout(function() {
+                        copyButton.innerHTML = originalCopyButtonSVG + `<span data-lang-key="copy-button">${originalCopyButtonContent}</span>`;
+                        document.getElementById('copy-tooltip').textContent = translations[currentLang]['copy-tooltip'] || "Copy to clipboard";
+                    }, 2000);
+                }).catch(function(err) {
+                    console.error('클립보드 복사 실패:', err);
+                    alert(translations[currentLang]['copy-failed'] || 'Failed to copy to clipboard.');
+                });
+            });
+            
+            // 텍스트 파일 다운로드 (단일 버튼)
+            downloadTxtButton.addEventListener('click', function() {
+                const text = transcriptContent.textContent;
+                const filename = "youtube_transcript.txt";
+                const blob = new Blob([text], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+            
+            // DOCX 다운로드 버튼 이벤트 리스너 제거됨
+            
+            youtubeUrlInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    extractButton.click();
+                }
+            });
+            
+            youtubeUrlInput.focus();
+        });
+    </script>
+</body>
+</html>
